@@ -43,10 +43,12 @@ use crate::{
         event_loop::{self, EventLoopWindowTarget, WindowLongPtr, DESTROY_MSG_ID},
         icon::{self, IconType},
         monitor, util,
-        window_state::{CursorFlags, SavedWindow, WindowFlags, WindowState},
+        window_state::{
+            CursorFlags, CursorHandle, RgbaHandle, SavedWindow, WindowFlags, WindowState,
+        },
         Parent, PlatformSpecificWindowBuilderAttributes, WindowId,
     },
-    window::{CursorIcon, Fullscreen, Theme, UserAttentionType, WindowAttributes},
+    window::{CursorIcon, CursorRgba, Fullscreen, Theme, UserAttentionType, WindowAttributes},
 };
 
 /// The Win32 implementation of the main `Window` object.
@@ -241,11 +243,24 @@ impl Window {
 
     #[inline]
     pub fn set_cursor_icon(&self, cursor: CursorIcon) {
-        self.window_state.lock().mouse.cursor = cursor;
+        self.window_state.lock().mouse.cursor = CursorHandle::Icon(cursor);
         self.thread_executor.execute_in_thread(move || unsafe {
             let cursor = winuser::LoadCursorW(ptr::null_mut(), cursor.to_windows_cursor());
             winuser::SetCursor(cursor);
         });
+    }
+
+    #[inline]
+    pub fn set_cursor_rgba(&self, cursor: CursorRgba) {
+        let window_state = Arc::clone(&self.window_state);
+
+        self.thread_executor.execute_in_thread(move || {
+            let cursor = RgbaHandle::new(&cursor);
+
+            cursor.display();
+
+            window_state.lock().mouse.cursor = CursorHandle::Rgba(cursor);
+        })
     }
 
     #[inline]

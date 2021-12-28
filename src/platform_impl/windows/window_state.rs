@@ -3,16 +3,22 @@ use crate::{
     event::ModifiersState,
     icon::Icon,
     platform_impl::platform::{event_loop, util},
-    window::{CursorIcon, Fullscreen, Theme, WindowAttributes},
+    window::{CursorIcon, CursorRgba, Fullscreen, Theme, WindowAttributes},
 };
 use parking_lot::MutexGuard;
+use std::sync::atomic::{AtomicPtr, Ordering};
 use std::{io, ptr};
+
 use winapi::{
+    ctypes::c_void,
     shared::{
-        minwindef::DWORD,
-        windef::{HWND, RECT},
+        minwindef::{DWORD, FALSE, LPVOID},
+        windef::{HICON, HICON__, HWND, RECT},
     },
-    um::winuser,
+    um::{
+        wingdi::{self, BITMAPINFO, BITMAPV4HEADER, BI_BITFIELDS, DIB_RGB_COLORS},
+        winuser::{self, ICONINFO},
+    },
 };
 
 /// Contains information about states and the window that the callback is going to use.
@@ -42,9 +48,100 @@ pub struct SavedWindow {
     pub placement: winuser::WINDOWPLACEMENT,
 }
 
-#[derive(Clone)]
+pub struct RgbaHandle {
+    pub hcursor: AtomicPtr<HICON__>,
+}
+
+impl RgbaHandle {
+    pub fn new(cursor: &CursorRgba) -> RgbaHandle {
+        unsafe {
+            let mut bmh: BITMAPV4HEADER = std::mem::zeroed();
+
+            bmh.bV4Size = std::mem::size_of::<BITMAPV4HEADER>() as u32;
+            bmh.bV4Width = cursor.width as i32;
+            bmh.bV4Height = -(cursor.height as i32);
+            bmh.bV4Planes = 1;
+            bmh.bV4BitCount = 32;
+            bmh.bV4V4Compression = BI_BITFIELDS;
+            bmh.bV4AlphaMask = 0xFF000000;
+            bmh.bV4RedMask = 0x00FF0000;
+            bmh.bV4GreenMask = 0x0000FF00;
+            bmh.bV4BlueMask = 0x000000FF;
+
+            let hdc = winuser::GetDC(ptr::null_mut());
+
+            let maskbitlen = (cursor.width * cursor.height) as usize;
+            let maskbits = vec![0xFF; maskbitlen];
+
+            let mut pixels: LPVOID = ptr::null_mut();
+            let mut ii: ICONINFO = std::mem::zeroed();
+
+            ii.fIcon = FALSE;
+            ii.xHotspot = cursor.xhot.into();
+            ii.yHotspot = cursor.yhot.into();
+
+            ii.hbmColor = wingdi::CreateDIBSection(
+                hdc,
+                (&bmh as *const _) as *const BITMAPINFO,
+                DIB_RGB_COLORS,
+                &mut pixels,
+                ptr::null_mut(),
+                0,
+            );
+
+            ii.hbmMask = wingdi::CreateBitmap(
+                cursor.width.into(),
+                cursor.height.into(),
+                1,
+                1,
+                maskbits.as_ptr() as *const c_void,
+            );
+
+            std::ptr::copy_nonoverlapping(
+                cursor.data.as_ptr() as *const u8,
+                pixels as *mut u8,
+                cursor.data.len() * std::mem::size_of::<u32>(),
+            );
+
+            let hicon: HICON = winuser::CreateIconIndirect(&mut ii);
+            if hicon.is_null() {
+                panic!("CreateIconIndirect() failed");
+            }
+
+            let handle = Self {
+                hcursor: AtomicPtr::new(hicon as *mut HICON__),
+            };
+
+            wingdi::DeleteDC(hdc);
+
+            handle
+        }
+    }
+
+    pub fn display(&self) {
+        let hcursor = self.hcursor.load(Ordering::Relaxed);
+        unsafe { winuser::SetCursor(hcursor as HICON) };
+    }
+}
+
+impl Drop for RgbaHandle {
+    fn drop(&mut self) {
+        let hcursor = self.hcursor.load(Ordering::Relaxed);
+        unsafe {
+            winuser::DestroyIcon(hcursor as HICON);
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub enum CursorHandle {
+    None,
+    Icon(CursorIcon),
+    Rgba(RgbaHandle),
+}
+
 pub struct MouseProperties {
-    pub cursor: CursorIcon,
+    pub cursor: CursorHandle,
     pub capture_count: u32,
     cursor_flags: CursorFlags,
     pub last_position: Option<PhysicalPosition<f64>>,
@@ -102,7 +199,7 @@ impl WindowState {
     ) -> WindowState {
         WindowState {
             mouse: MouseProperties {
-                cursor: CursorIcon::default(),
+                cursor: CursorHandle::Icon(CursorIcon::default()),
                 capture_count: 0,
                 cursor_flags: CursorFlags::empty(),
                 last_position: None,

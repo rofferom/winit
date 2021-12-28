@@ -30,7 +30,7 @@ use crate::{
     event_loop::{ControlFlow, EventLoopClosed, EventLoopWindowTarget as RootELW},
     icon::Icon,
     monitor::{MonitorHandle as RootMonitorHandle, VideoMode as RootVideoMode},
-    window::{CursorIcon, Fullscreen, UserAttentionType, WindowAttributes},
+    window::{CursorIcon, CursorRgba, Fullscreen, UserAttentionType, WindowAttributes},
 };
 
 pub(crate) use crate::icon::RgbaIcon as PlatformIcon;
@@ -346,6 +346,11 @@ impl Window {
     #[inline]
     pub fn set_cursor_icon(&self, cursor: CursorIcon) {
         x11_or_wayland!(match self; Window(w) => w.set_cursor_icon(cursor))
+    }
+
+    #[inline]
+    pub fn set_cursor_rgba(&self, cursor: CursorRgba) {
+        x11_or_wayland!(match self; Window(w) => w.set_cursor_rgba(cursor))
     }
 
     #[inline]

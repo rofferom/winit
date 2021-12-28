@@ -22,7 +22,7 @@ use crate::{
         MonitorHandle as PlatformMonitorHandle, OsError, PlatformSpecificWindowBuilderAttributes,
         VideoMode as PlatformVideoMode,
     },
-    window::{CursorIcon, Fullscreen, Icon, UserAttentionType, WindowAttributes},
+    window::{CursorIcon, CursorRgba, Fullscreen, Icon, UserAttentionType, WindowAttributes},
 };
 
 use super::{
@@ -1238,6 +1238,9 @@ impl UnownedWindow {
             self.xconn.set_cursor_icon(self.xwindow, Some(cursor));
         }
     }
+
+    #[inline]
+    pub fn set_cursor_rgba(&self, _cursor: CursorRgba) {}
 
     #[inline]
     pub fn set_cursor_grab(&self, grab: bool) -> Result<(), ExternalError> {

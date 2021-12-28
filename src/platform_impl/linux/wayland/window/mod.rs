@@ -17,7 +17,7 @@ use crate::platform_impl::{
     MonitorHandle as PlatformMonitorHandle, OsError,
     PlatformSpecificWindowBuilderAttributes as PlatformAttributes,
 };
-use crate::window::{CursorIcon, Fullscreen, UserAttentionType, WindowAttributes};
+use crate::window::{CursorIcon, CursorRgba, Fullscreen, UserAttentionType, WindowAttributes};
 
 use super::env::WindowingFeatures;
 use super::event_loop::WinitState;
@@ -408,6 +408,9 @@ impl Window {
     pub fn set_cursor_icon(&self, cursor: CursorIcon) {
         self.send_request(WindowRequest::NewCursorIcon(cursor));
     }
+
+    #[inline]
+    pub fn set_cursor_rgba(&self, _cursor: CursorRgba) {}
 
     #[inline]
     pub fn set_cursor_visible(&self, visible: bool) {
