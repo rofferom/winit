@@ -1240,7 +1240,11 @@ impl UnownedWindow {
     }
 
     #[inline]
-    pub fn set_cursor_rgba(&self, _cursor: CursorRgba) {}
+    pub fn set_cursor_rgba(&self, cursor: CursorRgba) {
+        if *self.cursor_visible.lock() {
+            self.xconn.set_cursor_rgba(self.xwindow, cursor);
+        }
+    }
 
     #[inline]
     pub fn set_cursor_grab(&self, grab: bool) -> Result<(), ExternalError> {

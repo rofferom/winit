@@ -22,6 +22,7 @@ pub struct XConnection {
     pub x11_fd: c_int,
     pub latest_error: Mutex<Option<XError>>,
     pub cursor_cache: Mutex<HashMap<Option<CursorIcon>, ffi::Cursor>>,
+    pub cursor_rgba: Mutex<Option<ffi::Cursor>>,
 }
 
 unsafe impl Send for XConnection {}
@@ -68,6 +69,7 @@ impl XConnection {
             x11_fd: fd,
             latest_error: Mutex::new(None),
             cursor_cache: Default::default(),
+            cursor_rgba: Mutex::new(None),
         })
     }
 
@@ -98,6 +100,10 @@ impl fmt::Debug for XConnection {
 impl Drop for XConnection {
     #[inline]
     fn drop(&mut self) {
+        if let Some(cursor_rgba) = self.cursor_rgba.lock().take() {
+            unsafe { (self.xlib.XFreeCursor)(self.display, cursor_rgba); }
+        }
+
         unsafe { (self.xlib.XCloseDisplay)(self.display) };
     }
 }

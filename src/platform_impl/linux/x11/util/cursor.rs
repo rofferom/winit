@@ -1,4 +1,6 @@
-use crate::window::CursorIcon;
+use std::slice;
+
+use crate::window::{CursorIcon, CursorRgba};
 
 use super::*;
 
@@ -11,6 +13,44 @@ impl XConnection {
             .or_insert_with(|| self.get_cursor(cursor));
 
         self.update_cursor(window, cursor);
+    }
+
+    pub fn set_cursor_rgba(&self, window: ffi::Window, cursor: CursorRgba) {
+        // Create new cursor
+        let new_cursor = unsafe {
+            let image = (self.xcursor.XcursorImageCreate)(
+                cursor.width.into(),
+                cursor.height.into());
+            if image == ptr::null_mut() {
+                panic!("failed to allocate image for cursor");
+            }
+
+            (*image).xhot = cursor.xhot.into();
+            (*image).yhot = cursor.yhot.into();
+            (*image).delay = 0;
+
+            let dst = slice::from_raw_parts_mut(
+                (*image).pixels,
+                (cursor.width * cursor.height).into());
+
+            dst.copy_from_slice(cursor.data.as_slice());
+
+            let cursor = (self.xcursor.XcursorImageLoadCursor)(self.display, image);
+            (self.xcursor.XcursorImageDestroy)(image);
+
+            cursor
+        };
+
+        // Drop old cursor if required, and store the new one
+        let mut cursor_rgba = self.cursor_rgba.lock();
+        if let Some(old_cursor) = cursor_rgba.take() {
+            unsafe { (self.xlib.XFreeCursor)(self.display, old_cursor); }
+        }
+
+        *cursor_rgba = Some(new_cursor);
+
+        // Display
+        self.update_cursor(window, new_cursor);
     }
 
     fn create_empty_cursor(&self) -> ffi::Cursor {
