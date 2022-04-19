@@ -968,10 +968,10 @@ impl Default for CursorIcon {
 
 #[derive(Clone)]
 pub struct CursorRgba {
-    pub xhot: u16,
-    pub yhot: u16,
-    pub width: u16,
-    pub height: u16,
+    pub xhot: u32,
+    pub yhot: u32,
+    pub width: u32,
+    pub height: u32,
     pub data: Vec<u32>,
 }
 

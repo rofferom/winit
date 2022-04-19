@@ -90,8 +90,8 @@ impl RgbaHandle {
             );
 
             ii.hbmMask = wingdi::CreateBitmap(
-                cursor.width.into(),
-                cursor.height.into(),
+                cursor.width as i32,
+                cursor.height as i32,
                 1,
                 1,
                 maskbits.as_ptr() as *const c_void,
