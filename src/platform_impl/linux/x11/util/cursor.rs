@@ -19,8 +19,8 @@ impl XConnection {
         // Create new cursor
         let new_cursor = unsafe {
             let image = (self.xcursor.XcursorImageCreate)(
-                cursor.width.into(),
-                cursor.height.into());
+                cursor.width as i32,
+                cursor.height as i32);
             if image == ptr::null_mut() {
                 panic!("failed to allocate image for cursor");
             }
@@ -31,7 +31,7 @@ impl XConnection {
 
             let dst = slice::from_raw_parts_mut(
                 (*image).pixels,
-                (cursor.width * cursor.height).into());
+                (cursor.width * cursor.height) as usize);
 
             dst.copy_from_slice(cursor.data.as_slice());
 
